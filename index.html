@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mission Control</title>
+    
+    <!-- Configurações de PWA (App) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mission Control">
+    <link rel="apple-touch-icon" href="rocket_logo.png">
+    <link rel="icon" type="image/png" href="rocket_logo.png">
+
+    <!-- React e Tailwind -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body { 
+            background-color: #0f172a; 
+            color: #e2e8f0; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            overscroll-behavior-y: none;
+        }
+        
+        .checkbox-wrapper input:checked + div {
+            background-color: #10b981;
+            border-color: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+        
+        .strike-through { text-decoration: line-through; color: #64748b; }
+        .neon-text-cyan { text-shadow: 0 0 5px rgba(34, 211, 238, 0.5); }
+        .neon-box { box-shadow: 0 0 15px rgba(168, 85, 247, 0.15); }
+        .neon-bar { box-shadow: 0 0 15px rgba(168, 85, 247, 0.6); }
+        .backdrop-blur-custom { backdrop-filter: blur(8px); }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .animate-pop { animation: fadeIn 0.2s ease-out; }
+
+        /* Avatares e Cores */
+        .avatar-glow-cyan { box-shadow: 0 0 8px rgba(34, 211, 238, 0.6); border-color: #22d3ee; }
+        .avatar-glow-pink { box-shadow: 0 0 8px rgba(244, 114, 182, 0.6); border-color: #f472b6; }
+        .avatar-glow-green { box-shadow: 0 0 8px rgba(74, 222, 128, 0.6); border-color: #4ade80; }
+        .avatar-glow-yellow { box-shadow: 0 0 8px rgba(250, 204, 21, 0.6); border-color: #facc15; }
+        .avatar-glow-orange { box-shadow: 0 0 8px rgba(251, 146, 60, 0.6); border-color: #fb923c; }
+        .avatar-glow-purple { box-shadow: 0 0 8px rgba(192, 132, 252, 0.6); border-color: #c084fc; }
+        .avatar-glow-red { box-shadow: 0 0 8px rgba(248, 113, 113, 0.6); border-color: #f87171; }
+        .avatar-glow-blue { box-shadow: 0 0 8px rgba(96, 165, 250, 0.6); border-color: #60a5fa; }
+        .avatar-glow-indigo { box-shadow: 0 0 8px rgba(129, 140, 248, 0.6); border-color: #818cf8; }
+        .avatar-glow-teal { box-shadow: 0 0 8px rgba(45, 212, 191, 0.6); border-color: #2dd4bf; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const Icons = {
+            Trash: ({size=16}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>,
+            Plus: ({size=20}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
+            Check: ({size=14}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
+            Rocket: ({size=24}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.1 4-1 4-1"></path><path d="M12 15v5s3.03-.55 4-2c1.1-1.62 1-4 1-4"></path></svg>,
+            Users: ({size=20}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>,
+            X: ({size=20}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+            Alert: ({size=24}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
+            Edit: ({size=16}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>,
+            More: ({size=20}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+        };
+
+        const TEAM_COLORS = [
+            { id: 'cyan', name: 'Ciano', bg: 'bg-cyan-500', text: 'text-cyan-400', border: 'border-cyan-400', glow: 'avatar-glow-cyan' },
+            { id: 'pink', name: 'Rosa', bg: 'bg-pink-500', text: 'text-pink-400', border: 'border-pink-400', glow: 'avatar-glow-pink' },
+            { id: 'green', name: 'Verde', bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-400', glow: 'avatar-glow-green' },
+            { id: 'yellow', name: 'Amarelo', bg: 'bg-yellow-500', text: 'text-yellow-400', border: 'border-yellow-400', glow: 'avatar-glow-yellow' },
+            { id: 'orange', name: 'Laranja', bg: 'bg-orange-500', text: 'text-orange-400', border: 'border-orange-400', glow: 'avatar-glow-orange' },
+            { id: 'purple', name: 'Roxo', bg: 'bg-purple-500', text: 'text-purple-400', border: 'border-purple-400', glow: 'avatar-glow-purple' },
+            { id: 'red', name: 'Vermelho', bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-400', glow: 'avatar-glow-red' },
+            { id: 'blue', name: 'Azul', bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-400', glow: 'avatar-glow-blue' },
+            { id: 'indigo', name: 'Índigo', bg: 'bg-indigo-500', text: 'text-indigo-400', border: 'border-indigo-400', glow: 'avatar-glow-indigo' },
+            { id: 'teal', name: 'Turquesa', bg: 'bg-teal-500', text: 'text-teal-400', border: 'border-teal-400', glow: 'avatar-glow-teal' },
+        ];
+
+        // Mapeamento de Cores dos Módulos Fixo
+        const neonTheme = {
+            'intro': 'border-cyan-500 text-cyan-400 bg-cyan-950/30',
+            'mod1': 'border-purple-500 text-purple-400 bg-purple-950/30',
+            'mod2': 'border-green-500 text-green-400 bg-green-950/30',
+            'mod3': 'border-yellow-500 text-yellow-400 bg-yellow-950/30',
+            'mod4': 'border-blue-500 text-blue-400 bg-blue-950/30',
+            'bonus': 'border-pink-500 text-pink-400 bg-pink-950/30',
+            'stage1': 'border-cyan-500 text-cyan-400 bg-cyan-950/30',
+            'stage2': 'border-purple-500 text-purple-400 bg-purple-950/30',
+        };
+
+        // Temas para os módulos (agora aplicados dinamicamente)
+        const MODULE_THEMES = [
+            'border-cyan-500 text-cyan-400 bg-cyan-950/30',
+            'border-purple-500 text-purple-400 bg-purple-950/30',
+            'border-green-500 text-green-400 bg-green-950/30',
+            'border-yellow-500 text-yellow-400 bg-yellow-950/30',
+            'border-blue-500 text-blue-400 bg-blue-950/30',
+            'border-pink-500 text-pink-400 bg-pink-950/30',
+            'border-orange-500 text-orange-400 bg-orange-950/30',
+            'border-red-500 text-red-400 bg-red-950/30',
+        ];
+
+        // Módulos Iniciais Genéricos
+        const initialModules = [
+            {
+                id: 'stage1', title: 'Etapa 1: Planejamento',
+                tasks: [
+                    { id: 1, text: 'Definir meu objetivo principal', completed: false, completedBy: null },
+                    { id: 2, text: 'Listar recursos necessários', completed: false, completedBy: null },
+                ]
+            },
+            {
+                id: 'stage2', title: 'Etapa 2: Execução',
+                tasks: [
+                    { id: 3, text: 'Iniciar primeira tarefa prática', completed: false, completedBy: null },
+                ]
+            }
+        ];
+
+        const initialTeam = [
+            { id: 'u1', name: 'Admin', role: 'Gestor', color: 'cyan' }
+        ];
+
+        function App() {
+            // --- ESTADOS ---
+            const [modules, setModules] = useState(() => {
+                const saved = localStorage.getItem('product_roadmap_data_v4'); 
+                return saved ? JSON.parse(saved) : initialModules;
+            });
+
+            const [team, setTeam] = useState(() => {
+                const saved = localStorage.getItem('product_roadmap_team');
+                return saved ? JSON.parse(saved) : initialTeam;
+            });
+
+            const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+            const [activeAssignTask, setActiveAssignTask] = useState(null); 
+            const [newTasks, setNewTasks] = useState({});
+            
+            // Estado para Edição de Módulos
+            const [editingModuleId, setEditingModuleId] = useState(null);
+            const [tempModuleTitle, setTempModuleTitle] = useState("");
+            
+            const [imgError, setImgError] = useState(false);
+            const [alertConfig, setAlertConfig] = useState(null);
+
+            // Novo Membro State
+            const [newMemberName, setNewMemberName] = useState('');
+            const [newMemberRole, setNewMemberRole] = useState('');
+            const [newMemberColor, setNewMemberColor] = useState('cyan');
+
+            // --- PERSISTÊNCIA ---
+            useEffect(() => {
+                localStorage.setItem('product_roadmap_data_v4', JSON.stringify(modules));
+            }, [modules]);
+
+            useEffect(() => {
+                localStorage.setItem('product_roadmap_team', JSON.stringify(team));
+            }, [team]);
+
+            // --- HELPERS ---
+            const showAlert = (msg) => setAlertConfig({ type: 'alert', message: msg });
+            const showConfirm = (msg, action) => setAlertConfig({ type: 'confirm', message: msg, onConfirm: action });
+            const closeAlert = () => setAlertConfig(null);
+            const getMember = (id) => team.find(t => t.id === id);
+
+            // --- LÓGICA DE MÓDULOS (NOVO) ---
+            const addNewModule = () => {
+                const newId = `custom_${Date.now()}`;
+                const newModule = {
+                    id: newId,
+                    title: 'Nova Fase (Clique para editar)',
+                    tasks: []
+                };
+                setModules([...modules, newModule]);
+                setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+            };
+
+            const deleteModule = (moduleId) => {
+                showConfirm("Tem certeza que deseja apagar esta fase inteira e todas as suas tarefas?", () => {
+                    setModules(modules.filter(m => m.id !== moduleId));
+                });
+            };
+
+            const startEditingModule = (module) => {
+                setEditingModuleId(module.id);
+                setTempModuleTitle(module.title);
+            };
+
+            const saveModuleTitle = (moduleId) => {
+                if (tempModuleTitle.trim() === "") return;
+                setModules(modules.map(m => m.id === moduleId ? { ...m, title: tempModuleTitle } : m));
+                setEditingModuleId(null);
+            };
+
+            // --- LÓGICA DE TAREFAS ---
+            const handleCheckClick = (moduleId, taskId, currentStatus) => {
+                if (currentStatus) {
+                    toggleTask(moduleId, taskId, null, false);
+                    return;
+                }
+                if (team.length === 1) {
+                    toggleTask(moduleId, taskId, team[0].id, true);
+                } else {
+                    setActiveAssignTask({ moduleId, taskId });
+                }
+            };
+
+            const toggleTask = (moduleId, taskId, userId, isCompleted) => {
+                setModules(modules.map(mod => {
+                    if (mod.id !== moduleId) return mod;
+                    return {
+                        ...mod,
+                        tasks: mod.tasks.map(t => t.id === taskId ? { ...t, completed: isCompleted, completedBy: isCompleted ? userId : null } : t)
+                    };
+                }));
+                setActiveAssignTask(null);
+            };
+
+            const addTask = (moduleId) => {
+                const text = newTasks[moduleId];
+                if (!text || text.trim() === '') return;
+                setModules(modules.map(mod => {
+                    if (mod.id !== moduleId) return mod;
+                    return { ...mod, tasks: [...mod.tasks, { id: Date.now(), text: text, completed: false, completedBy: null }] };
+                }));
+                setNewTasks({ ...newTasks, [moduleId]: '' });
+            };
+
+            const deleteTask = (moduleId, taskId) => {
+                showConfirm("Remover esta tarefa?", () => {
+                    setModules(modules.map(mod => {
+                        if (mod.id !== moduleId) return mod;
+                        return { ...mod, tasks: mod.tasks.filter(t => t.id !== taskId) };
+                    }));
+                });
+            };
+
+            // --- LÓGICA DE EQUIPE ---
+            const addMember = () => {
+                if (!newMemberName) return;
+                setTeam([...team, {
+                    id: Date.now().toString(),
+                    name: newMemberName,
+                    role: newMemberRole || 'Participante',
+                    color: newMemberColor
+                }]);
+                setNewMemberName('');
+                setNewMemberRole('');
+            };
+
+            const removeMember = (id) => {
+                if (team.length <= 1) return showAlert("A equipe precisa ter pelo menos um membro.");
+                showConfirm("Remover este membro?", () => setTeam(team.filter(t => t.id !== id)));
+            };
+
+            const totalTasks = modules.reduce((acc, mod) => acc + mod.tasks.length, 0);
+            const completedTasks = modules.reduce((acc, mod) => acc + mod.tasks.filter(t => t.completed).length, 0);
+            const percentage = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+
+            return (
+                <div className="min-h-screen pb-32 font-sans selection:bg-purple-500 selection:text-white">
+                    
+                    {/* Header */}
+                    <div className="bg-slate-900/90 backdrop-blur-md border-b border-slate-700 sticky top-0 z-20 shadow-lg">
+                        <div className="max-w-5xl mx-auto px-4 py-4">
+                            <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+                                <h1 className="text-xl md:text-2xl font-bold flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 neon-text-cyan select-none">
+                                    {!imgError ? (
+                                        <img src="./rocket_logo.png" alt="Logo" className="w-10 h-10 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" onError={() => setImgError(true)} />
+                                    ) : (<Icons.Rocket />)}
+                                    Mission Control
+                                </h1>
+                                
+                                <div className="flex items-center gap-6">
+                                    <button onClick={() => setIsTeamModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-600 rounded-full hover:border-cyan-400 hover:text-cyan-400 transition-all text-sm font-bold text-slate-300 group">
+                                        <Icons.Users size={16} />
+                                        <span className="group-hover:neon-text-cyan">Equipe ({team.length})</span>
+                                    </button>
+                                    <div className="text-2xl font-bold text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]">{percentage}%</div>
+                                </div>
+                            </div>
+                            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                                <div className="h-full bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 transition-all duration-500 ease-out rounded-full neon-bar" style={{ width: `${percentage}%` }}></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Conteúdo */}
+                    <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+                        {modules.map((mod, index) => {
+                            const themeIndex = index % MODULE_THEMES.length;
+                            const themeClass = neonTheme[mod.id] || MODULE_THEMES[themeIndex];
+                            
+                            return (
+                                <div key={mod.id} className="bg-slate-800 rounded-xl shadow-lg border border-slate-700 overflow-hidden hover:border-slate-600 transition-colors neon-box relative group">
+                                    
+                                    {/* Header do Módulo */}
+                                    <div className={`px-6 py-4 border-b border-slate-700/50 flex justify-between items-center bg-gradient-to-r from-slate-800 to-slate-900`}>
+                                        <div className="flex-grow mr-4">
+                                            {editingModuleId === mod.id ? (
+                                                <input 
+                                                    autoFocus
+                                                    type="text" 
+                                                    className="w-full bg-slate-900 text-white font-bold text-lg p-1 border-b-2 border-cyan-500 outline-none"
+                                                    value={tempModuleTitle}
+                                                    onChange={(e) => setTempModuleTitle(e.target.value)}
+                                                    onBlur={() => saveModuleTitle(mod.id)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && saveModuleTitle(mod.id)}
+                                                />
+                                            ) : (
+                                                <h2 className={`font-bold text-lg flex items-center gap-2 ${themeClass.split(' ').find(c => c.startsWith('text-'))} drop-shadow-md`}>
+                                                    {mod.title}
+                                                    <button onClick={() => startEditingModule(mod)} className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white transition-opacity p-1" title="Editar título">
+                                                        <Icons.Edit size={14} />
+                                                    </button>
+                                                </h2>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-xs font-bold px-2 py-1 rounded-full border bg-slate-900 ${themeClass.split(' ').find(c => c.startsWith('text-'))} ${themeClass.split(' ').find(c => c.startsWith('border-'))}`}>
+                                                {mod.tasks.filter(t => t.completed).length}/{mod.tasks.length}
+                                            </span>
+                                            <button onClick={() => deleteModule(mod.id)} className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-500 transition-opacity p-1" title="Apagar Módulo Inteiro">
+                                                <Icons.Trash size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Lista de Tarefas */}
+                                    <div className="p-4">
+                                        <div className="space-y-2">
+                                            {mod.tasks.map(task => {
+                                                const assignee = task.completedBy ? getMember(task.completedBy) : null;
+                                                const assigneeColor = assignee ? TEAM_COLORS.find(c => c.id === assignee.color) : null;
+
+                                                return (
+                                                    <div key={task.id} className="group/task flex items-center justify-between p-3 hover:bg-slate-700/50 rounded-lg transition-colors border border-transparent hover:border-slate-600">
+                                                        <div className="flex items-center gap-3 flex-grow">
+                                                            <div 
+                                                                onClick={() => handleCheckClick(mod.id, task.id, task.completed)}
+                                                                className={`cursor-pointer w-6 h-6 border-2 rounded transition-all flex items-center justify-center flex-shrink-0 ${task.completed ? 'bg-emerald-500 border-emerald-500 shadow-[0_0_10px_#10b981]' : 'border-slate-500 bg-slate-800 hover:border-slate-400'}`}
+                                                            >
+                                                                {task.completed && <div className="text-white"><Icons.Check size={14} /></div>}
+                                                            </div>
+                                                            <div className="flex-grow">
+                                                                <span className={`text-sm md:text-base select-none cursor-pointer ${task.completed ? 'strike-through' : 'text-slate-200'}`} onClick={() => handleCheckClick(mod.id, task.id, task.completed)}>
+                                                                    {task.text}
+                                                                </span>
+                                                            </div>
+                                                            {assignee && assigneeColor && (
+                                                                <div className={`flex items-center gap-2 px-2 py-1 rounded-full bg-slate-900 border ${assigneeColor.border} ${assigneeColor.glow}`}>
+                                                                    <div className={`w-4 h-4 rounded-full ${assigneeColor.bg} flex items-center justify-center text-[8px] text-white font-bold`}>{assignee.name.charAt(0)}</div>
+                                                                    <span className={`text-xs font-bold ${assigneeColor.text} hidden md:block`}>{assignee.name}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <button onClick={() => deleteTask(mod.id, task.id)} className="opacity-0 group-hover/task:opacity-100 text-slate-500 hover:text-red-400 p-2 transition-all ml-2">
+                                                            <Icons.Trash />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="mt-4 pt-3 border-t border-slate-700 flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                placeholder="Adicionar novo passo..." 
+                                                className="flex-grow text-sm p-2 bg-slate-900 border border-slate-600 text-white rounded focus:outline-none focus:border-cyan-500 focus:shadow-[0_0_10px_rgba(6,182,212,0.3)] placeholder-slate-500"
+                                                value={newTasks[mod.id] || ''}
+                                                onChange={(e) => setNewTasks({...newTasks, [mod.id]: e.target.value})}
+                                                onKeyDown={(e) => e.key === 'Enter' && addTask(mod.id)}
+                                            />
+                                            <button onClick={() => addTask(mod.id)} className="bg-cyan-600 text-white p-2 rounded hover:bg-cyan-500 hover:shadow-[0_0_10px_#06b6d4] transition-all">
+                                                <Icons.Plus />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {/* Botão Adicionar Módulo */}
+                        <div className="flex justify-center pt-4">
+                            <button 
+                                onClick={addNewModule}
+                                className="flex items-center gap-2 px-6 py-3 bg-slate-800 border border-dashed border-slate-500 rounded-xl text-slate-400 hover:text-white hover:border-cyan-400 hover:bg-slate-800/80 transition-all group"
+                            >
+                                <div className="p-1 bg-slate-700 rounded group-hover:bg-cyan-600 transition-colors"><Icons.Plus size={18} /></div>
+                                <span className="font-bold">Adicionar Nova Fase</span>
+                            </button>
+                        </div>
+
+                        <div className="text-center pt-8 text-slate-500 text-xs">
+                            <button onClick={() => showConfirm("Resetar todo o sistema e apagar dados?", () => { localStorage.clear(); window.location.reload(); })} className="hover:text-red-400 underline">Resetar Sistema</button>
+                        </div>
+                    </div>
+
+                    {/* MODAIS (Mantidos) */}
+                    {isTeamModalOpen && (
+                        <div className="fixed inset-0 z-[40] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-custom animate-pop">
+                            <div className="bg-slate-800 w-full max-w-md rounded-xl border border-slate-600 shadow-2xl overflow-hidden neon-box">
+                                <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-900">
+                                    <h3 className="font-bold text-white flex items-center gap-2"><Icons.Users size={18} /> Equipe</h3>
+                                    <button onClick={() => setIsTeamModalOpen(false)} className="text-slate-400 hover:text-white"><Icons.X /></button>
+                                </div>
+                                <div className="p-4 max-h-[60vh] overflow-y-auto">
+                                    <div className="space-y-3 mb-6">
+                                        {team.map(member => {
+                                            const color = TEAM_COLORS.find(c => c.id === member.color) || TEAM_COLORS[0];
+                                            const tasksDone = modules.reduce((acc, mod) => acc + mod.tasks.filter(t => t.completedBy === member.id).length, 0);
+                                            return (
+                                                <div key={member.id} className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg border border-slate-600">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-full ${color.bg} border-2 ${color.border} ${color.glow} flex items-center justify-center text-white font-bold text-lg`}>{member.name.charAt(0)}</div>
+                                                        <div><div className="font-bold text-white">{member.name}</div><div className="text-xs text-slate-400 flex gap-2"><span>{member.role}</span><span className="text-cyan-400 font-bold">• {tasksDone} tarefas</span></div></div>
+                                                    </div>
+                                                    <button onClick={() => removeMember(member.id)} className="text-slate-500 hover:text-red-400 p-2"><Icons.Trash /></button>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                    <div className="border-t border-slate-700 pt-4">
+                                        <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Novo Participante</h4>
+                                        <div className="space-y-3">
+                                            <input type="text" placeholder="Nome" className="w-full p-2 bg-slate-900 border border-slate-600 rounded text-white focus:border-cyan-500 outline-none" value={newMemberName} onChange={e => setNewMemberName(e.target.value)} />
+                                            <div className="flex flex-col gap-2">
+                                                <input type="text" placeholder="Cargo" className="w-full p-2 bg-slate-900 border border-slate-600 rounded text-white focus:border-cyan-500 outline-none" value={newMemberRole} onChange={e => setNewMemberRole(e.target.value)} />
+                                                <div className="flex flex-wrap gap-1 bg-slate-900 p-2 rounded border border-slate-600">
+                                                    {TEAM_COLORS.map(c => (<button key={c.id} onClick={() => setNewMemberColor(c.id)} className={`w-6 h-6 rounded ${c.bg} ${newMemberColor === c.id ? 'ring-2 ring-white scale-110' : 'opacity-40 hover:opacity-100'} transition-all`} />))}
+                                                </div>
+                                            </div>
+                                            <button onClick={addMember} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded shadow-[0_0_10px_rgba(6,182,212,0.4)]">Adicionar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeAssignTask && (
+                        <div className="fixed inset-0 z-[50] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm animate-pop">
+                            <div className="bg-slate-800 p-6 rounded-xl border border-purple-500 shadow-[0_0_30px_rgba(168,85,247,0.3)] max-w-sm w-full text-center">
+                                <h3 className="text-xl font-bold text-white mb-2">Quem concluiu?</h3>
+                                <div className="grid grid-cols-2 gap-3 mb-4 max-h-[40vh] overflow-y-auto">
+                                    {team.map(member => {
+                                        const color = TEAM_COLORS.find(c => c.id === member.color) || TEAM_COLORS[0];
+                                        return (
+                                            <button key={member.id} onClick={() => toggleTask(activeAssignTask.moduleId, activeAssignTask.taskId, member.id, true)} className={`p-3 rounded-lg border border-slate-600 bg-slate-700/50 hover:bg-slate-700 hover:border-${member.color}-400 transition-all group`}>
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <div className={`w-10 h-10 rounded-full ${color.bg} flex items-center justify-center text-white font-bold shadow-lg`}>{member.name.charAt(0)}</div>
+                                                    <span className="text-sm font-bold text-white group-hover:text-cyan-400">{member.name}</span>
+                                                </div>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                                <button onClick={() => setActiveAssignTask(null)} className="text-slate-500 hover:text-white text-sm underline">Cancelar</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {alertConfig && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-pop">
+                            <div className="bg-slate-900 p-6 rounded-xl border border-slate-600 shadow-2xl max-w-sm w-full text-center relative overflow-hidden">
+                                {alertConfig.type === 'alert' && <div className="absolute top-0 left-0 w-full h-1 bg-red-500 shadow-[0_0_10px_#ef4444]"></div>}
+                                {alertConfig.type === 'confirm' && <div className="absolute top-0 left-0 w-full h-1 bg-cyan-500 shadow-[0_0_10px_#06b6d4]"></div>}
+                                <div className="mb-4 flex justify-center text-slate-300">{alertConfig.type === 'alert' ? <Icons.Alert size={40} className="text-red-400" /> : <Icons.Rocket size={40} className="text-cyan-400" />}</div>
+                                <h3 className="text-lg font-bold text-white mb-2">{alertConfig.type === 'alert' ? 'Atenção' : 'Confirmação'}</h3>
+                                <p className="text-slate-300 mb-6 text-sm">{alertConfig.message}</p>
+                                <div className="flex gap-3 justify-center">
+                                    {alertConfig.type === 'confirm' && (<button onClick={closeAlert} className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 transition-colors">Cancelar</button>)}
+                                    <button onClick={() => { if (alertConfig.onConfirm) alertConfig.onConfirm(); closeAlert(); }} className={`px-6 py-2 rounded-lg text-white font-bold transition-all shadow-lg ${alertConfig.type === 'alert' ? 'bg-red-600 hover:bg-red-500' : 'bg-cyan-600 hover:bg-cyan-500'}`}>{alertConfig.type === 'alert' ? 'Entendi' : 'Sim, continuar'}</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
