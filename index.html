@@ -261,10 +261,9 @@
                 setCollapsedModules(prev => ({ ...prev, [id]: !prev[id] }));
             };
 
-            // --- DRAG AND DROP ---
+            // --- DRAG AND DROP DESKTOP (HTML5) ---
             const dragStart = (e, position) => {
                 dragItem.current = position;
-                // Efeito visual para o elemento sendo arrastado (opcional, pode ser melhorado com CSS classes)
                 e.dataTransfer.effectAllowed = 'move';
             };
 
@@ -277,16 +276,51 @@
                 e.preventDefault();
                 const copyListItems = [...modules];
                 const dragItemContent = copyListItems[dragItem.current];
-                
-                // Remove o item da posição original
                 copyListItems.splice(dragItem.current, 1);
-                
-                // Insere na nova posição
                 copyListItems.splice(dragOverItem.current, 0, dragItemContent);
-                
                 dragItem.current = null;
                 dragOverItem.current = null;
                 setModules(copyListItems);
+            };
+
+            // --- DRAG AND DROP MOBILE (TOUCH) ---
+            // Lógica robusta para simular drag n drop no touch
+            const touchStart = (e, position) => {
+                dragItem.current = position;
+                // Impede o scroll do body enquanto arrasta
+                document.body.style.overflow = 'hidden'; 
+            };
+
+            const touchMove = (e) => {
+                const touch = e.touches[0];
+                const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (!element) return;
+                
+                // Procura o elemento pai que contém o data-module-index
+                const moduleElement = element.closest('[data-module-index]');
+                
+                if (moduleElement) {
+                    const targetIndex = parseInt(moduleElement.getAttribute('data-module-index'));
+                    
+                    if (targetIndex !== dragItem.current && targetIndex !== undefined && !isNaN(targetIndex)) {
+                         const copyListItems = [...modules];
+                         const dragItemContent = copyListItems[dragItem.current];
+                         
+                         // Remove do índice antigo
+                         copyListItems.splice(dragItem.current, 1);
+                         // Insere no novo índice
+                         copyListItems.splice(targetIndex, 0, dragItemContent);
+                         
+                         // Atualiza o índice atual para o novo
+                         dragItem.current = targetIndex;
+                         setModules(copyListItems);
+                    }
+                }
+            };
+
+            const touchEnd = () => {
+                dragItem.current = null;
+                document.body.style.overflow = 'auto'; // Restaura o scroll
             };
 
             // --- LÓGICA DE TAREFAS ---
@@ -401,7 +435,7 @@
                                     <div className="text-2xl font-bold text-[#F59425] drop-shadow-[0_0_8px_rgba(245,148,37,0.8)]">{percentage}%</div>
                                 </div>
                             </div>
-                            {/* Barra de Progresso com degradê Laranja Admira */}
+                            {/* Barra de Progresso */}
                             <div className="w-full h-2 bg-[#05121d] rounded-full overflow-hidden border border-[#0F3555]">
                                 <div className="h-full bg-gradient-to-r from-orange-600 via-[#F59425] to-amber-300 transition-all duration-500 ease-out rounded-full neon-bar" style={{ width: `${percentage}%` }}></div>
                             </div>
@@ -418,6 +452,7 @@
                             return (
                                 <div 
                                     key={mod.id} 
+                                    data-module-index={index}
                                     className="bg-[#0F3555] rounded-xl shadow-lg border border-[#0F3555] overflow-hidden hover:border-[#F59425]/50 transition-colors neon-box relative group"
                                     onDragStart={(e) => dragStart(e, index)}
                                     onDragEnter={(e) => dragEnter(e, index)}
@@ -429,9 +464,16 @@
                                     {/* Header do Módulo */}
                                     <div className={`px-4 py-4 border-b border-[#05121d]/50 flex justify-between items-center bg-gradient-to-r from-[#0F3555] to-[#05121d] cursor-grab active:cursor-grabbing select-none`}>
                                         <div className="flex items-center gap-3 flex-grow mr-4">
-                                            {/* Ícone de Drag */}
-                                            <div className="text-slate-500 hover:text-[#F59425] cursor-grab active:cursor-grabbing p-1">
-                                                <Icons.Grip size={18} />
+                                            
+                                            {/* Ícone de Grip com eventos de Touch e Drag */}
+                                            <div 
+                                                className="text-slate-500 hover:text-[#F59425] cursor-grab active:cursor-grabbing p-2 -ml-2 touch-none"
+                                                onTouchStart={(e) => touchStart(e, index)}
+                                                onTouchMove={(e) => touchMove(e)}
+                                                onTouchEnd={touchEnd}
+                                                style={{ touchAction: 'none' }} // Crucial para permitir o arraste sem scroll
+                                            >
+                                                <Icons.Grip size={22} />
                                             </div>
 
                                             {editingModuleId === mod.id ? (
