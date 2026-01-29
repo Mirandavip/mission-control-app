@@ -284,10 +284,8 @@
             };
 
             // --- DRAG AND DROP MOBILE (TOUCH) ---
-            // Lógica robusta para simular drag n drop no touch
             const touchStart = (e, position) => {
                 dragItem.current = position;
-                // Impede o scroll do body enquanto arrasta
                 document.body.style.overflow = 'hidden'; 
             };
 
@@ -295,23 +293,15 @@
                 const touch = e.touches[0];
                 const element = document.elementFromPoint(touch.clientX, touch.clientY);
                 if (!element) return;
-                
-                // Procura o elemento pai que contém o data-module-index
                 const moduleElement = element.closest('[data-module-index]');
                 
                 if (moduleElement) {
                     const targetIndex = parseInt(moduleElement.getAttribute('data-module-index'));
-                    
                     if (targetIndex !== dragItem.current && targetIndex !== undefined && !isNaN(targetIndex)) {
                          const copyListItems = [...modules];
                          const dragItemContent = copyListItems[dragItem.current];
-                         
-                         // Remove do índice antigo
                          copyListItems.splice(dragItem.current, 1);
-                         // Insere no novo índice
                          copyListItems.splice(targetIndex, 0, dragItemContent);
-                         
-                         // Atualiza o índice atual para o novo
                          dragItem.current = targetIndex;
                          setModules(copyListItems);
                     }
@@ -320,7 +310,7 @@
 
             const touchEnd = () => {
                 dragItem.current = null;
-                document.body.style.overflow = 'auto'; // Restaura o scroll
+                document.body.style.overflow = 'auto';
             };
 
             // --- LÓGICA DE TAREFAS ---
@@ -435,7 +425,7 @@
                                     <div className="text-2xl font-bold text-[#F59425] drop-shadow-[0_0_8px_rgba(245,148,37,0.8)]">{percentage}%</div>
                                 </div>
                             </div>
-                            {/* Barra de Progresso */}
+                            {/* Barra de Progresso com degradê Laranja Admira */}
                             <div className="w-full h-2 bg-[#05121d] rounded-full overflow-hidden border border-[#0F3555]">
                                 <div className="h-full bg-gradient-to-r from-orange-600 via-[#F59425] to-amber-300 transition-all duration-500 ease-out rounded-full neon-bar" style={{ width: `${percentage}%` }}></div>
                             </div>
@@ -464,8 +454,7 @@
                                     {/* Header do Módulo */}
                                     <div className={`px-4 py-4 border-b border-[#05121d]/50 flex justify-between items-center bg-gradient-to-r from-[#0F3555] to-[#05121d] cursor-grab active:cursor-grabbing select-none`}>
                                         <div className="flex items-center gap-3 flex-grow mr-4">
-                                            
-                                            {/* Ícone de Grip com eventos de Touch e Drag */}
+                                            {/* Ícone de Drag */}
                                             <div 
                                                 className="text-slate-500 hover:text-[#F59425] cursor-grab active:cursor-grabbing p-2 -ml-2 touch-none"
                                                 onTouchStart={(e) => touchStart(e, index)}
@@ -708,6 +697,16 @@
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
+    </script>
+    <!-- Script para ativar o Modo Offline (Service Worker) -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((reg) => console.log('App pronto para uso offline!', reg.scope))
+                    .catch((err) => console.log('Falha ao registrar offline:', err));
+            });
+        }
     </script>
 </body>
 </html>
